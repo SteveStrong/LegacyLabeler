@@ -1,0 +1,134 @@
+@page "/legacy-labeler"
+@page "/legacy-labeler/{DocumentId?}"
+@inject DocumentService DocumentService
+@rendermode InteractiveServer
+
+<PageTitle>Legacy Labeler</PageTitle>
+
+<h1>Legacy Labeler</h1>
+
+@if (currentDocument != null)
+{
+    <div class="alert alert-info mb-3">
+        <strong>Reviewing:</strong> @currentDocument.OriginalFilename 
+        <span class="badge bg-secondary ms-2">@(currentDocumentIndex + 1) of @allDocuments.Count</span>
+    </div>
+}
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h4>Document Viewer</h4>
+            </div>
+            <div class="card-body">
+                @if (string.IsNullOrEmpty(documentContent))
+                {
+                    <div class="text-center p-4">
+                        <p class="text-muted">No document loaded</p>
+                        <button class="btn btn-primary" @onclick="LoadSampleDocument">Load Sample Document</button>
+                    </div>
+                }
+                else
+                {
+                    <div class="document-viewer border rounded p-3" style="height: 400px; overflow-y: auto; background-color: #f8f9fa;">
+                        <pre style="white-space: pre-wrap; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">@documentContent</pre>
+                    </div>
+                    <div class="mt-2">
+                        <button class="btn btn-secondary btn-sm" @onclick="ClearDocument">Clear Document</button>
+                        <span class="text-muted ms-2">Document loaded: @documentName</span>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h4>Document Description</h4>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <label for="documentDescription" class="form-label">Description:</label>
+                    <textarea id="documentDescription" 
+                              class="form-control" 
+                              rows="6" 
+                              placeholder="Enter a description of this document..."
+                              @bind="documentDescription"
+                              @bind:event="oninput"></textarea>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="documentCategory" class="form-label">Category:</label>
+                    <select id="documentCategory" class="form-select" @bind="selectedCategory">
+                        <option value="">Select category...</option>
+                        <option value="Legal">Legal</option>
+                        <option value="Financial">Financial</option>
+                        <option value="Technical">Technical</option>
+                        <option value="Administrative">Administrative</option>
+                        <option value="Other">Other</option>
+                    </select>
+                </div>
+                
+                <div class="mb-3">
+                    <label for="documentTags" class="form-label">Tags:</label>
+                    <input id="documentTags" 
+                           type="text" 
+                           class="form-control" 
+                           placeholder="Enter tags separated by commas"
+                           @bind="documentTags" />
+                </div>
+                
+                <div class="d-grid gap-2">
+                    <button class="btn btn-success" @onclick="SaveAndNext" disabled="@(currentDocument == null || string.IsNullOrEmpty(documentDescription))">
+                        <i class="bi bi-check-circle"></i> Save & Next Document
+                    </button>
+                    <button class="btn btn-primary" @onclick="SaveDescription" disabled="@(currentDocument == null || string.IsNullOrEmpty(documentDescription))">
+                        <i class="bi bi-floppy"></i> Save Description
+                    </button>
+                    <div class="btn-group">
+                        <button class="btn btn-outline-secondary" @onclick="LoadPreviousDocument" disabled="@(allDocuments.Count <= 1)">
+                            <i class="bi bi-arrow-left"></i> Previous
+                        </button>
+                        <button class="btn btn-outline-secondary" @onclick="LoadNextDocument" disabled="@(allDocuments.Count <= 1)">
+                            <i class="bi bi-arrow-right"></i> Next
+                        </button>
+                    </div>
+                    <button class="btn btn-outline-secondary" @onclick="ClearDescription">
+                        <i class="bi bi-eraser"></i> Clear Description
+                    </button>
+                </div>
+                
+                @if (showSaveMessage)
+                {
+                    <div class="alert alert-success mt-3" role="alert">
+                        Description saved successfully!
+                    </div>
+                }
+            </div>
+        </div>
+        
+        @if (savedDescriptions.Any())
+        {
+            <div class="card mt-3">
+                <div class="card-header">
+                    <h5>Recent Descriptions</h5>
+                </div>
+                <div class="card-body">
+                    @foreach (var saved in savedDescriptions.Take(3))
+                    {
+                        <div class="border-bottom pb-2 mb-2">
+                            <small class="text-muted">@saved.DocumentName - @saved.Timestamp.ToString("MM/dd HH:mm")</small>
+                            <div class="small">@saved.Description</div>
+                            @if (!string.IsNullOrEmpty(saved.Category))
+                            {
+                                <span class="badge bg-secondary">@saved.Category</span>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+        }
+    </div>
+</div>

@@ -1,0 +1,124 @@
+Voice-Assisted Document Triage Application
+Proposal for Technical Drawing Cataloging Initiative
+Date: January 12, 2026
+Prepared For: Document Library Stakeholders
+Purpose: Unlock 2,567 unusable technical drawings through efficient SME review
+Executive Summary
+The Problem: You have 2,567 technical drawings (CAD drawings, scanned mechanicals) sitting in unnamed, unsearchable states across multiple storage locations.
+These documents represent significant organizational knowledge but are effectively unusable because no one can find what they need.
+The Blocker: These documents require Subject Matter Expert (SME) review to identify and describe. Traditional approaches (manual typing into spreadsheets) are too
+time-consuming to be practical. As a result, the documents remain in limbo.
+Our Proposal: Build a simple voice-assisted triage application that runs on any laptop and enables SMEs to efficiently review and describe documents in
+approximately 1 minute per document instead of 5-10 minutes with manual data entry.
+The Outcome:
+2,567 documents properly named and cataloged
+Searchable text descriptions enabling document discovery
+Foundation for future AI/RAG initiatives
+Task becomes actually completable (vs. staying in limbo forever)
+Why This Makes Sense: Voice is 5x faster than typing. A simple tool turns an impossible task into a manageable project that multiple SMEs can complete in parallel.
+Current State Assessment
+Document Inventory
+993 PDF drawings on server - unnamed files awaiting review
+1,574 scanned mechanical drawings on external hard drive - require naming and classification
+Total: 2,567 documents effectively locked away from users
+Why They're Unusable
+1. No meaningful filenames - "Drawing_347.pdf" tells you nothing
+2. No metadata - Can't search, can't categorize, can't find
+3. No organization - Not structured for SharePoint or document management systems
+4. SME knowledge required - Only experts can identify what these documents represent
+Current Workflow Limitations
+Without intervention, the options are:
+Option A: Manual Spreadsheet Entry
+SME opens each drawing
+Switches to Excel
+Types description, categories, keywords
+Reality: Too slow and tedious; task never gets completed
+Option B: Do Nothing
+Documents remain unnamed
+SharePoint migration blocked
+Engineers continue wasting time hunting for files
+Knowledge lost when SMEs retire
+Neither option is acceptable.
+Proposed Solution: Simple Voice Triage Application
+Core Concept
+Create a simple desktop application that runs on any laptop and makes document review fast and natural for SMEs by leveraging voice input instead of typing.
+Not specialized hardware. Just a straightforward app that anyone can use on their existing computer.
+How It Works
+┌─────────────────────────────────────────────────────┐
+│ STEP 1: VIEW │
+│ Drawing automatically displays on screen │
+└─────────────────────────────────────────────────────┘
+↓
+┌─────────────────────────────────────────────────────┐
+│ STEP 2: SPEAK │
+│ SME presses spacebar and describes the document: │
+│ "This is the Unit 2 cooling water pump assembly, │
+│ revision C, shows motor mount and piping │
+│ connections, dated 2023" │
+└─────────────────────────────────────────────────────┘
+↓
+┌─────────────────────────────────────────────────────┐
+│ STEP 3: TRANSCRIBE (Local) │
+│ System transcribes speech to text │
+│ • Uses local speech-to-text (no external calls) │
+│ • Transcription happens on the laptop │
+│ • Text saved to local database │
+└─────────────────────────────────────────────────────┘
+↓
+┌─────────────────────────────────────────────────────┐
+│ STEP 4: REVIEW & SAVE │
+│ SME reviews transcribed text │
+│ Makes any edits if needed │
+│ Clicks "Save & Next" │
+│ • Document metadata saved locally │
+│ • File renamed according to convention │
+└─────────────────────────────────────────────────────┘
+↓
+┌─────────────────────────────────────────────────────┐
+│ STEP 5: NORMALIZE (Optional Background) │
+│ Periodically, AI can normalize descriptions: │
+│ • Standardize terminology across all documents │
+│ • Fix inconsistent formatting │
+│ • Extract keywords and categories │
+│ • This happens offline as batch process │
+│ • Not required for core functionality │
+└─────────────────────────────────────────────────────┘
+TIME PER DOCUMENT: About 1 minute (vs. 5-10 min manually)
+Key Features
+1. Optimized Document Viewer
+High-quality PDF/image rendering
+Pan, zoom, rotate for scanned documents
+Keyboard/voice navigation between documents
+No window switching - everything in one interface
+Documents never leave your network
+2. Voice Capture (Secure & Local)
+Push-to-talk (spacebar) or continuous listening
+Real-time transcription visible on screen
+Re-record if needed
+Uses local speech-to-text - no external services required
+Works with standard microphone or headset
+3. Data Storage (On-Premises)
+All data saved to local database
+Files stored on your servers/drives
+No data transmitted outside your network
+Standard database format (SQLite or PostgreSQL)
+4. AI Text Normalization (Optional Background Process)
+Not required for core functionality
+Can run as batch process after hours
+Standardizes terminology across all reviewers
+Suggests structured metadata based on descriptions
+Generates filenames following your naming convention
+Can be disabled or run fully on-premises if security requires
+5. Progress Tracking
+Admin dashboard shows completion status
+Distributes workload across multiple SMEs
+Tracks who reviewed what and when
+Estimates time to completion
+6. Data Export
+Searchable database of all descriptions
+CSV/Excel export for SharePoint import
+Properly renamed files ready for transfer
+Audit trail for compliance
+Security & Data Protection
+Core Principle: Your Data Stays on Your Network
+Document Security:
