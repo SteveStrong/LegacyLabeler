@@ -1,5 +1,6 @@
 using LegacyLabeler.Components;
-using LegacyLabeler.Components.Pages;
+using Radzen;
+using LegacyLabeler;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -7,8 +8,11 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
+// Add Radzen services
+builder.Services.AddRadzenComponents();
+
 // Add our custom services
-builder.Services.AddScoped<DocumentService>();
+builder.Services.AddScoped<LegacyLabeler.DocumentService>();
 
 var app = builder.Build();
 
@@ -23,6 +27,14 @@ app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages:
 app.UseHttpsRedirection();
 
 app.UseAntiforgery();
+
+// Serve documents from the Documents folder
+app.UseStaticFiles(new StaticFileOptions
+{
+    FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(
+        Path.Combine(Directory.GetCurrentDirectory(), "Documents")),
+    RequestPath = "/Documents"
+});
 
 app.MapStaticAssets();
 app.MapRazorComponents<App>()

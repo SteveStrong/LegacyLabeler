@@ -1,6 +1,6 @@
 using System.Text.Json;
 
-namespace LegacyLabeler.Components.Pages;
+namespace LegacyLabeler;
 
 public class DocumentService
 {

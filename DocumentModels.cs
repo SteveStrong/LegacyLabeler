@@ -1,4 +1,4 @@
-namespace LegacyLabeler.Components.Pages;
+namespace LegacyLabeler;
 
 public class DocumentReviewData
 {

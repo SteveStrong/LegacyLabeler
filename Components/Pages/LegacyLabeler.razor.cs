@@ -1,44 +1,56 @@
 using Microsoft.AspNetCore.Components;
+using Microsoft.JSInterop;
+using Radzen;
 
 namespace LegacyLabeler.Components.Pages;
 
 public partial class LegacyLabeler : ComponentBase
 {
-    [Parameter] public string? DocumentId { get; set; }
-    [Inject] public NavigationManager Navigation { get; set; } = null!;
-    
+    [Inject] private DocumentService DocumentService { get; set; } = default!;
+    [Inject] private NavigationManager Navigation { get; set; } = default!;
+    [Inject] private NotificationService NotificationService { get; set; } = default!;
+    [Inject] private IJSRuntime JSRuntime { get; set; } = default!;
+
+    [Parameter] [SupplyParameterFromQuery] public string? DocumentId { get; set; }
+
     private DocumentReview? currentDocument;
+    private DocumentReviewData? reviewData;
     private List<DocumentReview> allDocuments = new();
     private int currentDocumentIndex = 0;
-    
-    private string documentContent = "";
-    private string documentName = "";
-    private string documentDescription = "";
+    private bool isLoading = true;
+    private string description = "";
     private string selectedCategory = "";
-    private string documentTags = "";
+    private string keywords = "";
     private bool showSaveMessage = false;
-    private List<DocumentDescription> savedDescriptions = new();
+    private bool isRecording = false;
+    private bool imageZoomed = false;
+    
+    // Legacy support variables
+    private string documentDescription => description;
+    private string documentTags => keywords;
+    
+    // Activity log for voice capture events
+    private List<ActivityLogEntry> activityLog = new();
+    private List<SavedDescription> savedDescriptions = new();
+    
+    private readonly List<string> categories = new()
+    {
+        "Engineering Drawing",
+        "Schematic",
+        "Blueprint", 
+        "Technical Manual",
+        "Installation Guide",
+        "Maintenance Log",
+        "Quality Control",
+        "Safety Procedure",
+        "Other"
+    };
 
     protected override async Task OnInitializedAsync()
     {
         await LoadDocuments();
-        
-        if (!string.IsNullOrEmpty(DocumentId))
-        {
-            await LoadSpecificDocument(DocumentId);
-        }
-        else
-        {
-            await LoadSampleDocument();
-        }
-    }
-
-    protected override async Task OnParametersSetAsync()
-    {
-        if (!string.IsNullOrEmpty(DocumentId) && currentDocument?.Id != DocumentId)
-        {
-            await LoadSpecificDocument(DocumentId);
-        }
+        await LoadDocumentData();
+        await LoadSavedDescriptions();
     }
 
     private async Task LoadDocuments()
@@ -46,7 +58,7 @@ public partial class LegacyLabeler : ComponentBase
         allDocuments = await DocumentService.ScanForDocumentsAsync();
         
         // Load existing review data and merge
-        var reviewData = await DocumentService.LoadReviewDataAsync();
+        reviewData = await DocumentService.LoadReviewDataAsync();
         foreach (var doc in allDocuments)
         {
             var existing = reviewData.Documents.FirstOrDefault(d => d.Id == doc.Id);
@@ -61,110 +73,179 @@ public partial class LegacyLabeler : ComponentBase
         }
     }
 
-    private async Task LoadSpecificDocument(string documentId)
+    private async Task LoadDocumentData()
     {
-        currentDocument = allDocuments.FirstOrDefault(d => d.Id == documentId);
+        if (string.IsNullOrEmpty(DocumentId))
+        {
+            // Load the first document if no ID provided
+            if (allDocuments.Any())
+            {
+                currentDocument = allDocuments.First();
+                currentDocumentIndex = 0;
+            }
+            else
+            {
+                AddToActivityLog("No documents found");
+                return;
+            }
+        }
+        else
+        {
+            currentDocument = allDocuments.FirstOrDefault(d => d.Id == DocumentId);
+            if (currentDocument != null)
+            {
+                currentDocumentIndex = allDocuments.IndexOf(currentDocument);
+            }
+        }
         
         if (currentDocument != null)
         {
-            currentDocumentIndex = allDocuments.IndexOf(currentDocument);
-            documentName = currentDocument.OriginalFilename;
-            documentDescription = currentDocument.EditedDescription;
-            selectedCategory = currentDocument.Category;
-            documentTags = currentDocument.Keywords;
-            
-            // Load document content for display
-            if (File.Exists(currentDocument.FilePath))
+            description = currentDocument.EditedDescription ?? "";
+            selectedCategory = currentDocument.Category ?? "";
+            keywords = currentDocument.Keywords ?? "";
+            AddToActivityLog($"Loaded document: {currentDocument.OriginalFilename}");
+        }
+        else
+        {
+            AddToActivityLog($"Document not found: {DocumentId}");
+        }
+        
+        isLoading = false;
+    }
+    
+    private async Task LoadSavedDescriptions()
+    {
+        // Load recent saved descriptions for reference
+        savedDescriptions = reviewData?.Documents
+            .Where(d => !string.IsNullOrEmpty(d.EditedDescription))
+            .OrderByDescending(d => d.ReviewCompleted ?? d.ImportDate)
+            .Take(5)
+            .Select(d => new SavedDescription
             {
-                if (currentDocument.FileType == "pdf")
-                {
-                    documentContent = $"PDF Document: {currentDocument.OriginalFilename}";
-                }
-                else
-                {
-                    documentContent = $"Image Document: {currentDocument.OriginalFilename}";
-                }
+                DocumentName = d.OriginalFilename,
+                Description = d.EditedDescription ?? "",
+                Category = d.Category,
+                Timestamp = d.ReviewCompleted ?? d.ImportDate
+            })
+            .ToList() ?? new List<SavedDescription>();
+    }
+
+    private async Task OnSpeechCaptured(string speechText)
+    {
+        try
+        {
+            AddToActivityLog($"Speech captured: {speechText.Substring(0, Math.Min(50, speechText.Length))}...");
+            
+            // Accumulate speech text to existing description
+            if (!string.IsNullOrEmpty(description))
+            {
+                description += " " + speechText;
+            }
+            else
+            {
+                description = speechText;
             }
             
-            currentDocument.Status = DocumentStatus.InReview;
-            currentDocument.ReviewStarted = DateTime.UtcNow;
+            await InvokeAsync(StateHasChanged);
+            
+            ShowNotification("Speech captured successfully", NotificationSeverity.Success);
+        }
+        catch (Exception ex)
+        {
+            AddToActivityLog($"Error capturing speech: {ex.Message}");
+            ShowNotification("Error capturing speech", NotificationSeverity.Error);
         }
     }
 
-    private async Task LoadSampleDocument()
+    private async Task OnDescriptionChange(string value)
     {
-        documentName = "Sample_Legacy_Document.txt";
-        documentContent = @"MEMORANDUM
-
-TO: All Department Heads
-FROM: Executive Office
-DATE: March 15, 1995
-RE: Policy Update - Document Retention
-
-This memorandum serves to notify all department heads of the updated document retention policy effective April 1, 1995.
-
-Key Changes:
-1. Financial records must be retained for 7 years (previously 5 years)
-2. Personnel files must be maintained for the duration of employment plus 3 years
-3. All correspondence must be filed within 30 days of receipt
-4. Digital backup procedures are now mandatory for all critical documents
-
-Please ensure your staff is informed of these changes and begin implementation immediately.
-
-For questions regarding this policy, please contact the Records Management Office at extension 2847.
-
-Sincerely,
-Margaret Thompson
-Executive Assistant";
-    }
-
-    private void ClearDocument()
-    {
-        documentContent = "";
-        documentName = "";
-        ClearDescription();
-    }
-
-    private void ClearDescription()
-    {
-        documentDescription = "";
-        selectedCategory = "";
-        documentTags = "";
-        showSaveMessage = false;
+        description = value;
+        AddToActivityLog("Description updated manually");
+        await InvokeAsync(StateHasChanged);
     }
 
     private async Task SaveDescription()
     {
-        if (currentDocument != null && !string.IsNullOrEmpty(documentDescription))
+        if (currentDocument == null) return;
+
+        try
         {
-            // Update the current document
-            currentDocument.EditedDescription = documentDescription;
+            currentDocument.EditedDescription = description;
             currentDocument.Category = selectedCategory;
-            currentDocument.Keywords = documentTags;
-            currentDocument.Status = DocumentStatus.Completed;
+            currentDocument.Keywords = keywords;
             currentDocument.ReviewCompleted = DateTime.UtcNow;
-            
-            if (currentDocument.ReviewStarted.HasValue)
-            {
-                currentDocument.ReviewDurationSeconds = (int)(DateTime.UtcNow - currentDocument.ReviewStarted.Value).TotalSeconds;
-            }
+            currentDocument.Status = DocumentStatus.Completed;
 
-            // Save to JSON file
             await DocumentService.SaveDocumentReviewAsync(currentDocument);
-
+            await LoadSavedDescriptions();
+            
+            AddToActivityLog($"Saved description for {currentDocument.OriginalFilename}");
+            ShowNotification("Description saved successfully!", NotificationSeverity.Success);
+            
             showSaveMessage = true;
-
-            // Hide the save message after 3 seconds
+            StateHasChanged();
+            
+            // Auto-hide success message
             await Task.Delay(3000);
             showSaveMessage = false;
             StateHasChanged();
         }
+        catch (Exception ex)
+        {
+            AddToActivityLog($"Error saving: {ex.Message}");
+            ShowNotification("Error saving description", NotificationSeverity.Error);
+        }
     }
 
-    private async Task SaveAndNext()
+    private void BackToDocuments()
     {
-        await SaveDescription();
-        await LoadNextDocument();
+        Navigation.NavigateTo("/documentbrowser");
+    }
+    
+    private void AddToActivityLog(string message)
+    {
+        activityLog.Add(new ActivityLogEntry
+        {
+            Timestamp = DateTime.Now,
+            Message = message
+        });
+        
+        // Keep only last 20 entries
+        if (activityLog.Count > 20)
+        {
+            activityLog.RemoveAt(0);
+        }
+    }
+    
+    private void ShowNotification(string message, NotificationSeverity severity)
+    {
+        NotificationService.Notify(new NotificationMessage
+        {
+            Severity = severity,
+            Summary = message,
+            Duration = 3000
+        });
+    }
+
+    private string GetDocumentUrl()
+    {
+        if (currentDocument == null) return "";
+        return $"/Documents/{currentDocument.OriginalFilename}";
+    }
+    
+    private static bool IsImageFile(string fileType)
+    {
+        return fileType.ToLower() switch
+        {
+            "jpg" or "jpeg" or "png" or "gif" or "bmp" or "tiff" or "tif" => true,
+            _ => false
+        };
+    }
+
+    private void ToggleImageZoom()
+    {
+        imageZoomed = !imageZoomed;
+        StateHasChanged();
     }
 
     private async Task LoadNextDocument()
@@ -187,12 +268,31 @@ Executive Assistant";
         }
     }
 
-    public class DocumentDescription
+    private async Task SaveAndNext()
+    {
+        await SaveDescription();
+        await LoadNextDocument();
+    }
+
+    private void ClearDescription()
+    {
+        description = "";
+        selectedCategory = "";
+        keywords = "";
+        showSaveMessage = false;
+    }
+
+    private class ActivityLogEntry
+    {
+        public DateTime Timestamp { get; set; }
+        public string Message { get; set; } = "";
+    }
+    
+    private class SavedDescription
     {
         public string DocumentName { get; set; } = "";
         public string Description { get; set; } = "";
-        public string Category { get; set; } = "";
-        public string Tags { get; set; } = "";
+        public string? Category { get; set; }
         public DateTime Timestamp { get; set; }
     }
 }

@@ -43,7 +43,11 @@
                         @foreach (var doc in documents)
                         {
                             <tr>
-                                <td>@doc.OriginalFilename</td>
+                                <td>
+                                    <a href="/Documents/@doc.OriginalFilename" target="_blank" class="text-decoration-none">
+                                        <i class="bi bi-file-earmark-text me-1"></i>@doc.OriginalFilename
+                                    </a>
+                                </td>
                                 <td>@doc.FileType.ToUpper()</td>
                                 <td>@FormatFileSize(doc.FileSize)</td>
                                 <td>
